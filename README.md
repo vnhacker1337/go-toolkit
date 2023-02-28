@@ -1,0 +1,2 @@
+# goutils
+helpers for golang
