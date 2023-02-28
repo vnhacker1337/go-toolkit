@@ -1,17 +1,21 @@
-package commonutil
+package helpers
 
 import (
 	"fmt"
 	"time"
 
+	filehelpers "github.com/vnhacker1337/goutils/helpers"
+
 	funk "github.com/thoas/go-funk"
-	fileutil "github.com/vnhacker1337/goutils/file"
 )
 
 func Diff2Files(f1 string, f2 string) ([]string, []string) {
 
-	file1_slice := fileutil.LoadFile(f1)
-	file2_slice := fileutil.LoadFile(f2)
+	// file1_slice := fileutil.LoadFile(f1)
+	// file2_slice := fileutil.LoadFile(f2)
+
+	file1_slice := filehelpers.LoadFile(f1)
+	file2_slice := filehelpers.LoadFile(f2)
 
 	only_file1, only_file2 := funk.DifferenceString(file1_slice, file2_slice)
 
