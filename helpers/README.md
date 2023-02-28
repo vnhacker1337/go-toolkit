@@ -1,2 +1,2 @@
 # helper
-The package contains common helpers
+The package contains common helpers from Mr.X
