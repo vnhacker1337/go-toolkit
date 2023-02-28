@@ -1,4 +1,4 @@
-package filehelpers
+package helpers
 
 import (
 	"bufio"
@@ -99,7 +99,7 @@ func LoadFile(filename string) (lines []string) {
 	if err != nil {
 		return
 	}
-	defer f.Close() //nolint
+	defer f.Close()
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		lines = append(lines, s.Text())
