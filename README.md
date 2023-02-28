@@ -1,2 +1,2 @@
-# goutils
-helpers for golang
+# utils
+The package contains various helpers libraries
