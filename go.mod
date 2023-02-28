@@ -1,3 +1,3 @@
 module github.com/vnhacker1337/goutils
 
-go 1.20
+go 1.19
