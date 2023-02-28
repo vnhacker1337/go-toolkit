@@ -1,3 +1,3 @@
-module github.com/vnhacker1337/goutils
+module github.com/vnhacker1337/go-toolkit
 
-go 1.19
+go 1.20
