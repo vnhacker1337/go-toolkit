@@ -1,4 +1,4 @@
-module github.com/projectdiscovery/utils
+module github.com/vnhacker1337/go-toolkit
 
 go 1.20
 
@@ -7,6 +7,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/charmbracelet/glamour v0.6.0
 	github.com/denisbrodbeck/machineid v1.0.1
+	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/go-github/v30 v30.1.0
 	github.com/hdm/jarm-go v0.0.7
 	github.com/kljensen/snowball v0.8.0
@@ -14,16 +15,18 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.25
 	github.com/miekg/dns v1.1.55
 	github.com/minio/selfupdate v0.6.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/blackrock v0.0.1
 	github.com/projectdiscovery/fdmax v0.0.4
+	github.com/projectdiscovery/utils v0.0.58
 	github.com/remeh/sizedwaitgroup v1.0.0
-	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca
+	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/shirou/gopsutil/v3 v3.23.7
 	github.com/stretchr/testify v1.8.4
-	github.com/zmap/zcrypto v0.0.0-20220803033029-557f3e4940be
+	github.com/zmap/zcrypto v0.0.0-20230205235340-d51ce4775101
 	go.uber.org/multierr v1.11.0
-	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2
 	golang.org/x/oauth2 v0.11.0
 	golang.org/x/sys v0.13.0
 	golang.org/x/text v0.13.0
