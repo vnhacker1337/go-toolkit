@@ -3,6 +3,7 @@ package fileutil
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -55,8 +56,8 @@ func TestDeleteFilesOlderThan(t *testing.T) {
 	// create a temporary folder with a couple of files
 	fo, err := os.MkdirTemp("", "")
 	require.Nil(t, err, "couldn't create folder: %s", err)
-	ttl := time.Duration(5 * time.Second)
-	sleepTime := time.Duration(10 * time.Second)
+	ttl := time.Duration(1 * time.Second)
+	sleepTime := time.Duration(3 * time.Second)
 
 	// defer temporary folder removal
 	defer os.RemoveAll(fo)
@@ -478,5 +479,156 @@ func TestCountLineWithSeparator(t *testing.T) {
 			require.Nil(t, err)
 			require.Equal(t, test.expectedLines, linesCount)
 		}
+	}
+}
+
+func TestSubstituteConfigFromEnvVars(t *testing.T) {
+	configFileContent := `test:
+	- id: some_id
+	  channel: $CHANNEL
+	  username: $USER
+	  webhook_url: $WEBHOOK
+	  threads: $THREADS
+  `
+	f, err := os.CreateTemp("", "")
+	require.Nil(t, err, "couldn't create file: %s", err)
+	fname := f.Name()
+	_, _ = f.Write([]byte(configFileContent))
+	f.Close()
+	defer os.Remove(fname)
+
+	os.Setenv("CHANNEL", "test_channel")
+	os.Setenv("USER", "test_user")
+	os.Setenv("WEBHOOK", "test_webhook")
+	os.Setenv("THREADS", "test_threads")
+
+	expectedFileContent := `test:
+	- id: some_id
+	  channel: test_channel
+	  username: test_user
+	  webhook_url: test_webhook
+	  threads: test_threads
+  `
+	reader, err := SubstituteConfigFromEnvVars(fname)
+	require.Nil(t, err, "couldn't substitute config values: %s", err)
+
+	bytes, err := io.ReadAll(reader)
+	require.Nil(t, err, "couldn't read file data: %s", err)
+
+	expectedFileContentLines := strings.Split(expectedFileContent, "\n")
+	gotFileContentLines := strings.Split(string(bytes), "\n")
+	for i := range expectedFileContentLines {
+		require.Equal(t, expectedFileContentLines[i], gotFileContentLines[i], "lines in config don't match")
+	}
+}
+
+func TestFileSizeToByteLen(t *testing.T) {
+	byteLen, err := FileSizeToByteLen("2kb")
+	require.Nil(t, err, "couldn't convert file size to byte len: %s", err)
+	require.Equal(t, int(2048), byteLen)
+
+	byteLen, err = FileSizeToByteLen("2mb")
+	require.Nil(t, err, "couldn't convert file size to byte len: %s", err)
+	require.Equal(t, int(2097152), byteLen)
+
+	byteLen, err = FileSizeToByteLen("2")
+	require.Nil(t, err, "couldn't convert file size to byte len: %s", err)
+	require.Equal(t, int(2097152), byteLen)
+
+	_, err = FileSizeToByteLen("2kilobytes")
+	require.NotNil(t, err, "shouldn't convert file size to byte len: %s", err)
+	require.ErrorContains(t, err, "parse error")
+}
+
+func TestOpenOrCreateFile(t *testing.T) {
+	t.Run("should open an existing file", func(t *testing.T) {
+		testFileName := "existingfile.txt"
+
+		file, err := os.Create(testFileName)
+		if err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+		file.Close()
+
+		file, err = OpenOrCreateFile(testFileName)
+		require.NoError(t, err)
+		require.True(t, FileExists(testFileName))
+		file.Close()
+
+		err = os.RemoveAll(testFileName)
+		if err != nil {
+			t.Fatalf("failed to remove test file: %v", err)
+		}
+	})
+
+	t.Run("should create file if it does not exist", func(t *testing.T) {
+		testFileName := "testfile.txt"
+		file, err := OpenOrCreateFile(testFileName)
+		require.NoError(t, err)
+		require.True(t, FileExists(testFileName))
+		file.Close()
+
+		err = os.RemoveAll(testFileName)
+		if err != nil {
+			t.Fatalf("failed to remove test file: %v", err)
+		}
+	})
+
+	t.Run("should fail when opening a non-existing file", func(t *testing.T) {
+		testFileName := "/nonexistentdirectory/testfile.txt"
+		_, err := OpenOrCreateFile(testFileName)
+
+		require.Error(t, err)
+	})
+}
+
+func TestFileExistsIn(t *testing.T) {
+	tempDir := t.TempDir()
+	anotherTempDir := t.TempDir()
+	tempFile := filepath.Join(tempDir, "file.txt")
+	err := os.WriteFile(tempFile, []byte("content"), 0644)
+	if err != nil {
+		t.Fatalf("failed to write to temporary file: %v", err)
+	}
+	defer os.RemoveAll(tempFile)
+
+	tests := []struct {
+		name         string
+		file         string
+		allowedFiles []string
+		expectedPath string
+		expectedErr  bool
+	}{
+		{
+			name:         "file exists in allowed directory",
+			file:         tempFile,
+			allowedFiles: []string{filepath.Join(tempDir, "tempfile.txt")},
+			expectedPath: tempDir,
+			expectedErr:  false,
+		},
+		{
+			name:         "file does not exist in allowed directory",
+			file:         tempFile,
+			allowedFiles: []string{anotherTempDir},
+			expectedPath: "",
+			expectedErr:  true,
+		},
+		{
+			name:         "path starting with .",
+			file:         tempFile,
+			allowedFiles: []string{"."},
+			expectedPath: "",
+			expectedErr:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			allowedPath, err := FileExistsIn(tc.file, tc.allowedFiles...)
+			gotErr := err != nil
+			require.Equal(t, tc.expectedErr, gotErr, "expected err but got %v", gotErr)
+			require.Equal(t, tc.expectedPath, allowedPath)
+
+		})
 	}
 }

@@ -245,3 +245,61 @@ func TestFirstNonZeroBool(t *testing.T) {
 		require.Equal(t, tc.ExpectedFound, found)
 	}
 }
+
+func TestClone(t *testing.T) {
+	intSlice := []int{1, 2, 3}
+	require.Equal(t, intSlice, Clone(intSlice))
+
+	stringSlice := []string{"a", "b", "c"}
+	require.Equal(t, stringSlice, Clone(stringSlice))
+
+	bytesSlice := []byte{1, 2, 3}
+	require.Equal(t, bytesSlice, Clone(bytesSlice))
+}
+
+func TestVisitSequential(t *testing.T) {
+	intSlice := []int{1, 2, 3}
+	var res []int
+	visit := func(index int, item int) error {
+		res = append(res, item)
+		return nil
+	}
+	VisitSequential(intSlice, visit)
+	require.Equal(t, intSlice, res)
+}
+
+func TestVisitRandom(t *testing.T) {
+	intSlice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	var timesDifferent int
+	for i := 0; i < 100; i++ {
+		var res []int
+		visit := func(index int, item int) error {
+			res = append(res, item)
+			return nil
+		}
+		VisitRandom(intSlice, visit)
+		if !Equal(intSlice, res) {
+			timesDifferent++
+		}
+		require.ElementsMatch(t, intSlice, res)
+	}
+	require.True(t, timesDifferent > 0)
+}
+
+func TestVisitRandomZero(t *testing.T) {
+	intSlice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	var timesDifferent int
+	for i := 0; i < 100; i++ {
+		var res []int
+		visit := func(index int, item int) error {
+			res = append(res, item)
+			return nil
+		}
+		VisitRandomZero(intSlice, visit)
+		if !Equal(intSlice, res) {
+			timesDifferent++
+		}
+		require.ElementsMatch(t, intSlice, res)
+	}
+	require.True(t, timesDifferent > 0)
+}

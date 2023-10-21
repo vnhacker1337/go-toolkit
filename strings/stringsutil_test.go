@@ -79,6 +79,19 @@ func TestHasPrefixAny(t *testing.T) {
 	}
 }
 
+func TestHasPrefixAnyI(t *testing.T) {
+	tests := map[string]prefixsuffixtest{
+		"A b c":     {Prefixes: []string{"a"}, Result: true},
+		"A B c d":   {Prefixes: []string{"a b", "a"}, Result: true},
+		"a b c d e": {Prefixes: []string{"b", "o", "A"}, Result: true},
+		"test test": {Prefixes: []string{"a", "b"}, Result: false},
+	}
+	for str, test := range tests {
+		res := HasPrefixAnyI(str, test.Prefixes...)
+		require.Equalf(t, test.Result, res, "test: %s prefixes: %+v result: %s", str, test.Prefixes, res)
+	}
+}
+
 func TestHasSuffixAny(t *testing.T) {
 	tests := map[string]prefixsuffixtest{
 		"a b c":     {Suffixes: []string{"c"}, Result: true},
@@ -199,6 +212,20 @@ func TestContainsAny(t *testing.T) {
 	}
 }
 
+func TestContainsAnyI(t *testing.T) {
+	tests := map[string]containstest{
+		"abc":    {Items: []string{"A", "b"}, Result: true},
+		"abcd":   {Items: []string{"X", "b"}, Result: true},
+		"A b C":  {Items: []string{"X"}, Result: false},
+		"aaa":    {Items: []string{"A"}, Result: true},
+		"Hello!": {Items: []string{"hELLO", "world"}, Result: true},
+	}
+	for str, test := range tests {
+		res := ContainsAnyI(str, test.Items...)
+		require.Equalf(t, test.Result, res, "test: %+v", res)
+	}
+}
+
 func TestEqualFoldAny(t *testing.T) {
 	tests := map[string]containstest{
 		"abc":   {Items: []string{"a", "Abc"}, Result: true},
@@ -289,6 +316,40 @@ func TestLongestRepeatingSequence(t *testing.T) {
 	}
 }
 
+func TestIsPrintable(t *testing.T) {
+	tests := []struct {
+		s        string
+		expected bool
+	}{
+		{"abcdefg", true},
+		{"abcabcabc", true},
+		{"abcdefabcdef", true},
+		{"abcdefgabcdefg", true},
+		{"abcabcdefdef", true},
+		{"\x03", false},
+	}
+
+	for _, test := range tests {
+		result := IsPrintable(test.s)
+		require.Equalf(t, test.expected, result, "test: %s, expected %q, got: %s", test.s, test.expected, result)
+	}
+}
+
+func TestIsCTRLC(t *testing.T) {
+	tests := []struct {
+		s        string
+		expected bool
+	}{
+		{"aaa", false},
+		{"\x03", true},
+	}
+
+	for _, test := range tests {
+		result := IsCTRLC(test.s)
+		require.Equalf(t, test.expected, result, "test: %s, expected %q, got: %s", test.s, test.expected, result)
+	}
+}
+
 type truncateTest struct {
 	test    string
 	maxSize int
@@ -309,5 +370,23 @@ func TestTruncate(t *testing.T) {
 	for _, test := range tests {
 		res := Truncate(test.test, test.maxSize)
 		require.Equalf(t, test.result, res, "test:%s maxsize: %d result: %s", test.test, test.maxSize, res)
+	}
+}
+
+func TestIndexAny(t *testing.T) {
+	tests := []struct {
+		s           string
+		seps        []string
+		expectedIdx int
+		expectedSep string
+	}{
+		{"abcdefg", []string{"a", "b"}, 0, "a"},
+		{"abcdefg", []string{"z", "b"}, 1, "b"},
+		{"abcdefg", []string{"z", "zz"}, -1, ""},
+	}
+	for _, test := range tests {
+		idx, sep := IndexAny(test.s, test.seps...)
+		require.Equal(t, test.expectedIdx, idx)
+		require.Equal(t, test.expectedSep, sep)
 	}
 }

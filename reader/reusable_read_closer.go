@@ -2,13 +2,16 @@ package reader
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 )
 
 // ReusableReadCloser is a reusable reader with no-op close
 type ReusableReadCloser struct {
+	*sync.RWMutex
 	io.Reader
 	readBuf *bytes.Buffer
 	backBuf *bytes.Buffer
@@ -67,6 +70,7 @@ func NewReusableReadCloser(raw interface{}) (*ReusableReadCloser, error) {
 
 	}
 	reusableReadCloser := &ReusableReadCloser{
+		&sync.RWMutex{},
 		io.TeeReader(&readBuf, &backBuf),
 		&readBuf,
 		&backBuf,
@@ -78,8 +82,11 @@ func NewReusableReadCloser(raw interface{}) (*ReusableReadCloser, error) {
 
 // Read []byte from Reader
 func (r ReusableReadCloser) Read(p []byte) (int, error) {
+	r.Lock()
+	defer r.Unlock()
+
 	n, err := r.Reader.Read(p)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		r.reset()
 	}
 	return n, err

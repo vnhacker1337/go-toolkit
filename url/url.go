@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	errorutil "github.com/projectdiscovery/utils/errors"
+	osutils "github.com/projectdiscovery/utils/os"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
@@ -17,10 +18,10 @@ var DisableAutoCorrect bool
 type URL struct {
 	*url.URL
 
-	Original   string // original or given url(without params if any)
-	Unsafe     bool   // If request is unsafe (skip validation)
-	IsRelative bool   // If URL is relative
-	Params     Params // Query Parameters
+	Original   string         // original or given url(without params if any)
+	Unsafe     bool           // If request is unsafe (skip validation)
+	IsRelative bool           // If URL is relative
+	Params     *OrderedParams // Query Parameters
 	// should call Update() method when directly updating wrapped url.URL or parameters
 }
 
@@ -33,7 +34,7 @@ func (u *URL) MergePath(newrelpath string, unsafe bool) error {
 	if err != nil {
 		return err
 	}
-	u.Params.Merge(ux.Params)
+	u.Params.Merge(ux.Params.Encode())
 	u.Path = mergePaths(u.Path, ux.Path)
 	if ux.Fragment != "" {
 		u.Fragment = ux.Fragment
@@ -52,11 +53,13 @@ func (u *URL) Update() {
 	// This is a hot patch for url.URL
 	// parameters are serialized when parsed with `url.Parse()` to avoid this
 	// url should be parsed without parameters and then assigned with url.RawQuery to force unserialized parameters
-	u.RawQuery = u.Params.Encode()
+	if u.Params != nil {
+		u.RawQuery = u.Params.Encode()
+	}
 }
 
 // Query returns Query Params
-func (u *URL) Query() Params {
+func (u *URL) Query() *OrderedParams {
 	return u.Params
 }
 
@@ -65,7 +68,7 @@ func (u *URL) Clone() *URL {
 	var userinfo *url.Userinfo
 	if u.User != nil {
 		// userinfo is immutable so this is the only way
-		tempurl := "https://" + u.User.String() + "@" + "scanme.sh/"
+		tempurl := HTTPS + SchemeSeparator + u.User.String() + "@" + "scanme.sh/"
 		turl, _ := url.Parse(tempurl)
 		if turl != nil {
 			userinfo = turl.User
@@ -84,12 +87,7 @@ func (u *URL) Clone() *URL {
 		ForceQuery:  u.ForceQuery,
 		RawFragment: u.RawFragment,
 	}
-	params := make(Params)
-	if u.Params != nil {
-		for k, v := range u.Params {
-			params[k] = v
-		}
-	}
+	params := u.Params.Clone()
 	return &URL{
 		URL:        ux,
 		Params:     params,
@@ -117,7 +115,11 @@ func (u *URL) String() string {
 // EscapedString returns a string that can be used as filename (i.e stripped of / and params etc)
 func (u *URL) EscapedString() string {
 	var buff bytes.Buffer
-	buff.WriteString(u.Host)
+	host := u.Host
+	if osutils.IsWindows() {
+		host = strings.ReplaceAll(host, ":", "_")
+	}
+	buff.WriteString(host)
 	if u.Path != "" && u.Path != "/" {
 		buff.WriteString("_" + strings.ReplaceAll(u.Path, "/", "_"))
 	}
@@ -133,7 +135,7 @@ func (u *URL) GetRelativePath() string {
 		}
 		buff.WriteString(u.Path)
 	}
-	if len(u.Params) > 0 {
+	if u.Params.om.Len() > 0 {
 		buff.WriteRune('?')
 		buff.WriteString(u.Params.Encode())
 	}
@@ -200,7 +202,7 @@ func (u *URL) parseUnsafeRelativePath() {
 // fetchParams retrieves query parameters from URL
 func (u *URL) fetchParams() {
 	if u.Params == nil {
-		u.Params = make(Params)
+		u.Params = NewOrderedParams()
 	}
 	// parse fragments if any
 	if i := strings.IndexRune(u.Original, '#'); i != -1 {
@@ -229,9 +231,12 @@ func ParseURL(inputURL string, unsafe bool) (*URL, error) {
 		URL:      &url.URL{},
 		Original: inputURL,
 		Unsafe:   unsafe,
+		Params:   NewOrderedParams(),
 	}
 	u.fetchParams()
 	// filter out fragments and parameters only then parse path
+	// we use u.Original because u.fetchParams() parses fragments and parameters
+	// from u.Original (this is done to preserve query order in params and other edgecases)
 	inputURL = u.Original
 	if inputURL == "" {
 		return nil, errorutil.NewWithTag("urlutil", "failed to parse url got empty input")
@@ -245,7 +250,7 @@ func ParseURL(inputURL string, unsafe bool) (*URL, error) {
 		return u, nil
 	}
 	// Try to parse host related input
-	if stringsutil.HasPrefixAny(inputURL, "http", "https", "//") || strings.Contains(inputURL, "://") {
+	if stringsutil.HasPrefixAny(inputURL, HTTP+SchemeSeparator, HTTPS+SchemeSeparator, "//") || strings.Contains(inputURL, "://") {
 		u.IsRelative = false
 		urlparse, parseErr := url.Parse(inputURL)
 		if parseErr != nil {
@@ -264,7 +269,7 @@ func ParseURL(inputURL string, unsafe bool) (*URL, error) {
 	} else {
 		// if no prefix try to parse it with https
 		// if failed we consider it as a relative path and not a full url
-		urlparse, parseErr := url.Parse("https://" + inputURL)
+		urlparse, parseErr := url.Parse(HTTPS + SchemeSeparator + inputURL)
 		if parseErr != nil {
 			// most likely a relativeurl
 			u.IsRelative = true
@@ -327,6 +332,7 @@ func ParseRelativePath(inputURL string, unsafe bool) (*URL, error) {
 		}
 	}
 	if urlparse != nil {
+		urlparse.Host = ""
 		copy(u.URL, urlparse)
 	}
 	u.parseUnsafeRelativePath()
